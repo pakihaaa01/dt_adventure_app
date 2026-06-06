@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 allprojects {
     repositories {
         google()
@@ -21,4 +23,32 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+}
+
+// =======================================================
+// FIX NAMESPACE & KESELARASAN JAVA 11 - KOTLIN 11
+// =======================================================
+subprojects {
+    plugins.withId("com.android.library") {
+        configure<com.android.build.gradle.LibraryExtension> {
+            if (namespace == null) {
+                namespace = project.group.toString()
+            }
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_11
+                targetCompatibility = JavaVersion.VERSION_11
+            }
+        }
+    }
+
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+    }
+
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = JavaVersion.VERSION_11.toString()
+        targetCompatibility = JavaVersion.VERSION_11.toString()
+    }
 }
