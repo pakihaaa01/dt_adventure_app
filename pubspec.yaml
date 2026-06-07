@@ -29,9 +29,9 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   cupertino_icons: ^1.0.8
+  file_saver: ^0.4.0
   flutter:
     sdk: flutter
-  gallery_saver_plus: ^3.2.9
   google_fonts: ^8.1.0
   google_sign_in: ^6.2.2
   http: ^1.2.2

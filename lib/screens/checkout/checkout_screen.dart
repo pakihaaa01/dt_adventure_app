@@ -9,8 +9,8 @@ import '../main/main_screen.dart';
 import 'nota_screen.dart';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
-import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_saver/file_saver.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final String nama;
@@ -42,40 +42,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final byteData = await rootBundle.load('assets/images/qris.png');
 
-      final tempDir = await getTemporaryDirectory();
+      final bytes = byteData.buffer.asUint8List();
 
-      final file = File(
-        '${tempDir.path}/qris_${DateTime.now().millisecondsSinceEpoch}.png',
+      await FileSaver.instance.saveFile(
+        name: 'qris_${DateTime.now().millisecondsSinceEpoch}',
+        bytes: bytes,
+        mimeType: MimeType.png,
       );
 
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-
-      final result = await GallerySaver.saveImage(file.path);
-
-      if (result == true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("✅ QRIS berhasil didownload!"),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("❌ Gagal menyimpan QRIS."),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("✅ QRIS berhasil disimpan"),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ Gagal menyimpan QRIS: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
