@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 allprojects {
     repositories {
@@ -11,12 +12,14 @@ val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
         .get()
+
 rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }
@@ -25,30 +28,17 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
-// =======================================================
-// FIX NAMESPACE & KESELARASAN JAVA 11 - KOTLIN 11
-// =======================================================
+// Force semua module menggunakan Java 17 & Kotlin 17
 subprojects {
-    plugins.withId("com.android.library") {
-        configure<com.android.build.gradle.LibraryExtension> {
-            if (namespace == null) {
-                namespace = project.group.toString()
-            }
-            compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_11
-                targetCompatibility = JavaVersion.VERSION_11
-            }
-        }
-    }
-
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
-        }
-    }
 
     tasks.withType<JavaCompile>().configureEach {
-        sourceCompatibility = JavaVersion.VERSION_11.toString()
-        targetCompatibility = JavaVersion.VERSION_11.toString()
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
+    }
+
+    tasks.withType<KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
 }
