@@ -37,14 +37,19 @@ class NotaScreen extends StatefulWidget {
 
 class _NotaScreenState extends State<NotaScreen> {
   Future<void> _openMaps() async {
-    const url =
-        'https://www.google.com/maps/search/?api=1&query=Dusun+Sepatan+RT+09+RW+05+No+8+Rawang+Pekalongan';
+    const url = 'https://maps.app.goo.gl/GPCac51kjwxhDees9?g_st=iw';
 
     final uri = Uri.parse(url);
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  Future<void> _openWhatsApp() async {
+    final uri = Uri.parse('https://wa.me/6288232778958');
+
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -395,15 +400,7 @@ class _NotaScreenState extends State<NotaScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "Fitur buka WhatsApp akan segera tersedia.",
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: _openWhatsApp,
                   icon: const Icon(Icons.chat, color: Colors.white),
                   label: const Text(
                     "Chat WhatsApp",
