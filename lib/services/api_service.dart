@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/tipe_alat.dart';
 import '../services/cart_manager.dart';
+import 'dart:io';
 
 class ApiService {
   static const String baseUrl = 'https://dtadventure.web.id/api';
@@ -27,7 +28,7 @@ class ApiService {
     }
   }
 
-  Future<bool> buatPesanan({
+  Future<int?> buatPesanan({
     required int userId,
     required String nama,
     required String whatsapp,
@@ -37,45 +38,51 @@ class ApiService {
     required String tglSelesai,
     required double totalHarga,
     required List<CartItem> cartItems,
+    File? buktiBayar,
   }) async {
     try {
-      List<Map<String, dynamic>> itemsJson = cartItems.map((item) {
-        return {
-          'tipe_alat_id': item.produk.id,
-          'qty': item.qty,
-        };
-      }).toList();
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/pesanan'));
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/pesanan'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'user_id': userId,
-          'nama': nama,
-          'whatsapp': whatsapp,
-          'email': email,
-          'metode_pembayaran': metodePembayaran,
-          'tgl_mulai': tglMulai,
-          'tgl_selesai': tglSelesai,
-          'total_harga': totalHarga,
-          'items': itemsJson,
-        }),
-      );
+      request.headers.addAll({
+        'Accept': 'application/json',
+      });
+
+      request.fields['user_id'] = userId.toString();
+      request.fields['nama'] = nama;
+      request.fields['whatsapp'] = whatsapp;
+      request.fields['email'] = email;
+      request.fields['metode_pembayaran'] = metodePembayaran;
+      request.fields['tgl_mulai'] = tglMulai;
+      request.fields['tgl_selesai'] = tglSelesai;
+      request.fields['total_harga'] = totalHarga.toInt().toString();
+
+      for (int i = 0; i < cartItems.length; i++) {
+        request.fields['items[$i][tipe_alat_id]'] = cartItems[i].produk.id.toString();
+        request.fields['items[$i][qty]'] = cartItems[i].qty.toString();
+      }
+
+      if (buktiBayar != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'bukti_pembayaran',
+          buktiBayar.path,
+        ));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
       print('Status Code (Post Pesanan): ${response.statusCode}');
       print('Isi Response Pesanan: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData['pesanan_id'];
       } else {
-        return false;
+        return null;
       }
     } catch (e) {
       print("Error koneksi API Buat Pesanan: $e");
-      return false;
+      return null;
     }
   }
 }

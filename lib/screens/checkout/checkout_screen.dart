@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final String nama;
@@ -32,21 +34,35 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String metodePembayaran = 'Cash';
+  File? _buktiBayar;
+
+  Future<void> _pilihBuktiBayar() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _buktiBayar = File(pickedFile.path);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Bukti bayar berhasil dipilih!"), backgroundColor: Colors.green),
+        );
+      }
+    }
+  }
 
   Future<void> _downloadQRIS() async {
     try {
-      // 1. Minta izin akses penyimpanan
       var status = await Permission.storage.request();
       if (!status.isGranted) {
-        status = await Permission.photos.request(); // Fallback untuk Android 13+
+        status = await Permission.photos.request();
       }
 
       if (status.isGranted) {
-        // 2. Load gambar dari assets
         ByteData byteData = await rootBundle.load('assets/images/qris.png');
         Uint8List pngBytes = byteData.buffer.asUint8List();
 
-        // 3. Simpan pakai package temuanmu (Perhatikan huruf kapitalnya: ImageGallerySaverPlus)
         final result = await ImageGallerySaverPlus.saveImage(
             pngBytes,
             name: "QRIS_DT_Adventure_${DateTime.now().millisecondsSinceEpoch}"
@@ -175,7 +191,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         foregroundColor: const Color(0xFF003B46),
                       ),
                       onPressed: () {
-                        // Memanggil fungsi download yang sebenarnya
                         _downloadQRIS();
                       },
                       icon: const Icon(Icons.download, size: 18),
@@ -184,23 +199,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
+                        backgroundColor: _buktiBayar != null ? Colors.green : Colors.white.withOpacity(0.2),
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Fitur upload bukti bayar akan segera tersedia."),
-                            backgroundColor: Colors.blueAccent,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.upload_file, size: 18),
-                      label: const Text("Upload"),
+                      onPressed: _pilihBuktiBayar,
+                      icon: Icon(_buktiBayar != null ? Icons.check_circle : Icons.upload_file, size: 18),
+                      label: Text(_buktiBayar != null ? "Berhasil Upload" : "Upload"),
                     ),
                   ],
-                )
+                ),
+                if (_buktiBayar != null) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      "File: ${_buktiBayar!.path.split('/').last}",
+                      style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ]
               ]
             ]),
             const SizedBox(height: 40),
@@ -252,6 +269,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _prosesPesanan(double totalAkhir) async {
+    // --- 1. TAMBAHKAN VALIDASI INI DI PALING ATAS FUNGSI ---
+    if (metodePembayaran == "QRIS" && _buktiBayar == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Harap upload bukti pembayaran QRIS terlebih dahulu!"), backgroundColor: Colors.redAccent),
+      );
+      return; // Hentikan proses jika gambar kosong
+    }
+    // -------------------------------------------------------
+
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))));
 
     String tglMulaiStr = "${widget.tglMulai.year}-${widget.tglMulai.month.toString().padLeft(2, '0')}-${widget.tglMulai.day.toString().padLeft(2, '0')}";
@@ -259,7 +285,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     List<CartItem> itemDisimpan = List.from(CartManager.items);
 
-    bool isSuccess = await ApiService().buatPesanan(
+    int? idPesananAsli = await ApiService().buatPesanan(
       userId: 1,
       nama: widget.nama,
       whatsapp: widget.whatsapp,
@@ -269,19 +295,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       tglSelesai: tglSelesaiStr,
       totalHarga: totalAkhir,
       cartItems: itemDisimpan,
+      buktiBayar: _buktiBayar, // --- 2. KIRIM FILE-NYA KE API ---
     );
 
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
 
-    if (isSuccess) {
+    if (idPesananAsli != null) {
       CartManager.bersihkanKeranjang();
 
-      // FIX: Langsung buka NotaScreen dan bersihkan semua riwayat halaman ke belakang
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => NotaScreen(
-              pesananId: DateTime.now().millisecondsSinceEpoch % 100000,
+              pesananId: idPesananAsli,
               nama: widget.nama,
               whatsapp: widget.whatsapp,
               email: widget.email,
@@ -289,16 +317,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               tglMulai: tglMulaiStr,
               tglKembali: tglSelesaiStr,
               metodePembayaran: metodePembayaran,
-              status: metodePembayaran == "Cash" ? "Menunggu Pengambilan" : "Menunggu Konfirmasi",
+              // --- 3. UBAH LOGIKA STATUSNYA DI SINI ---
+              status: metodePembayaran == "Cash" ? "Menunggu Pengambilan" : "Menunggu Verifikasi",
               totalPembayaran: totalAkhir,
               items: itemDisimpan,
+              buktiBayar: _buktiBayar, // --- 4. KIRIM FILE-NYA KE HALAMAN NOTA ---
             ),
           ),
               (route) => false,
         );
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal mengirim pesanan."), backgroundColor: Colors.redAccent));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Gagal mengirim pesanan. Silakan coba lagi."), backgroundColor: Colors.redAccent)
+        );
+      }
     }
   }
 }
