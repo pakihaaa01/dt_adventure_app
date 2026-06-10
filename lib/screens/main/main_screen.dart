@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
 import '../produk/produk_screen.dart';
 import '../keranjang/keranjang_screen.dart';
+import '../akun/akun_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -18,26 +19,25 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _selectedIndex = index;
       if (index == 1) {
-        _selectedKategoriId = 0; // Jika klik manual tab Produk, tampilkan Semua
+        _selectedKategoriId = 0;
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // List screens diletakkan di dalam build() agar dinamis menerima ID
     final List<Widget> screens = [
       HomeScreen(
         onCategoryTap: (categoryId) {
           setState(() {
             _selectedKategoriId = categoryId;
-            _selectedIndex = 1; // Pindah ke tab Produk
+            _selectedIndex = 1;
           });
         },
       ),
       ProdukScreen(initialCategoryId: _selectedKategoriId),
       const KeranjangScreen(),
-      const Center(child: Text('Halaman Akun', style: TextStyle(color: Colors.white))),
+      const AkunScreen(),
     ];
 
     return Scaffold(
@@ -48,7 +48,10 @@ class _MainScreenState extends State<MainScreen> {
           height: 35,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
-            return const Text("DT Adventure", style: TextStyle(fontWeight: FontWeight.bold));
+            return const Text(
+              "DT Adventure",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            );
           },
         ),
         elevation: 2,

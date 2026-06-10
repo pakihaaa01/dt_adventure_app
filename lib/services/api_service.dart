@@ -1,15 +1,70 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/tipe_alat.dart';
 import '../services/cart_manager.dart';
-import 'dart:io';
+import 'auth_manager.dart';
 
 class ApiService {
   static const String baseUrl = 'https://dtadventure.web.id/api';
 
+  Future<List<Map<String, dynamic>>> fetchRiwayatPesanan() async {
+    try {
+      final token = await AuthManager.getToken();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/pesanan'),
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Status Code (Get Riwayat): ${response.statusCode}');
+      print('Response Riwayat: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+
+      throw Exception('Gagal memuat riwayat pesanan');
+    } catch (e) {
+      throw Exception('Kesalahan: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchPesananBerjalan() async {
+    try {
+      final data = await fetchRiwayatPesanan();
+
+      final aktif = data.where((e) {
+        final status = (e['status'] ?? '').toString().toLowerCase();
+
+        return status != 'selesai' &&
+            status != 'dibatalkan' &&
+            status != 'batal';
+      }).toList();
+
+      if (aktif.isEmpty) return null;
+
+      return aktif.first;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<List<TipeAlat>> fetchProduk() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/tipe-alat'));
+      final token = await AuthManager.getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/tipe-alat'),
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
 
       print('Status Code (Get Produk): ${response.statusCode}');
       print('Isi Response: ${response.body}');
@@ -21,13 +76,16 @@ class ApiService {
             .toList();
         return produkList;
       } else {
-        throw Exception('Gagal memuat data dari server. Kode: ${response.statusCode}');
+        throw Exception(
+          'Gagal memuat data dari server. Kode: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Kesalahan: $e');
     }
   }
 
+  // Kode gabungan: Fitur Token (dari temanmu) + Fitur QRIS (darimu)
   Future<int?> buatPesanan({
     required int userId,
     required String nama,
@@ -41,10 +99,16 @@ class ApiService {
     File? buktiBayar,
   }) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/pesanan'));
+      final token = await AuthManager.getToken(); // Mengambil token login
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/pesanan'),
+      );
 
       request.headers.addAll({
         'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token', // Memasukkan token
       });
 
       request.fields['user_id'] = userId.toString();
@@ -61,19 +125,23 @@ class ApiService {
         request.fields['items[$i][qty]'] = cartItems[i].qty.toString();
       }
 
+      // Mengirim file gambar jika ada
       if (buktiBayar != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-          'bukti_pembayaran',
-          buktiBayar.path,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'bukti_pembayaran',
+            buktiBayar.path,
+          ),
+        );
       }
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       print('Status Code (Post Pesanan): ${response.statusCode}');
       print('Isi Response Pesanan: ${response.body}');
 
+      // Mengembalikan ID pesanan agar nota_screen bisa terbuka
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         return responseData['pesanan_id'];

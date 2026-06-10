@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'screens/main/main_screen.dart';
-// Jika kamu ingin pakai font Poppins dengan mudah,
-// tambahkan package google_fonts di pubspec.yaml lalu import:
-// import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'screens/splash/splash_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
   runApp(const MyApp());
 }
 
@@ -17,36 +23,23 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'DT Adventure',
       theme: ThemeData(
-        // Latar belakang default
         scaffoldBackgroundColor: const Color(0xFF005577),
-
-        // Warna Font Utama (Opsional jika pakai google_fonts)
-        // textTheme: GoogleFonts.poppinsTextTheme().apply(
-        //   bodyColor: Colors.white,
-        //   displayColor: Colors.white,
-        // ),
-
-        // Gaya AppBar menyesuaikan Header web
+        textTheme: GoogleFonts.poppinsTextTheme().apply(
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF013a63),
-          foregroundColor: Colors.white, // Teks title warna putih
+          foregroundColor: Colors.white,
           elevation: 0,
         ),
-
-        // Gaya Navigasi Bawah
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: Color(0xFF013a63),
-          selectedItemColor: Color(0xFFFFD700), // Kuning Emas khas web
+          selectedItemColor: Color(0xFFFFD700),
           unselectedItemColor: Colors.white54,
         ),
-
-        // Gaya Teks default agar warna putih
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.white),
-          bodyLarge: TextStyle(color: Colors.white),
-        ),
       ),
-      home: const MainScreen(),
+      home: const SplashScreen(),
     );
   }
 }
